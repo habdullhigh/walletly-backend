@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Walletly.Api/Walletly.Api.csproj" />
+  <Project Path="Walletly.Application/Walletly.Application.csproj" />
+  <Project Path="Walletly.Domain/Walletly.Domain.csproj" />
+  <Project Path="Walletly.Infrastructure/Walletly.Infrastructure.csproj" />
+</Solution>

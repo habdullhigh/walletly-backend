@@ -1,0 +1,6 @@
+@Walletly.Api_HostAddress = http://localhost:5070
+
+GET {{Walletly.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
