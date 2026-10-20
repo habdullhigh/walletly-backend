@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SharedKernel;
 using Walletly.Application.DTOs.Auth;
 using Walletly.Application.Interfaces;
 
@@ -9,7 +8,7 @@ namespace Walletly.Api.Controllers;
 
 [ApiController]
 [Route("api/platform/auth")]
-public class PlatformAuthController(IPlatformAuthService authService) : ControllerBase
+public class PlatformAuthController(IPlatformAuthService authService) : ApiControllerBase
 {
     [HttpPost("register")]
     [Authorize(Roles = "admin")]
@@ -51,19 +50,5 @@ public class PlatformAuthController(IPlatformAuthService authService) : Controll
 
         var result = await authService.GetProfileAsync(userId, cancellationToken);
         return result.IsFailure ? ToProblem(result.Error) : Ok(result.Value);
-    }
-
-    private IActionResult ToProblem(Error error)
-    {
-        var statusCode = error.Type switch
-        {
-            ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
-            ErrorType.Forbidden => StatusCodes.Status403Forbidden,
-            ErrorType.NotFound => StatusCodes.Status404NotFound,
-            ErrorType.Conflict => StatusCodes.Status409Conflict,
-            _ => StatusCodes.Status400BadRequest
-        };
-
-        return Problem(title: error.Code, detail: error.Description, statusCode: statusCode);
     }
 }

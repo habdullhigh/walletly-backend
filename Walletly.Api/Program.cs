@@ -5,9 +5,12 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Walletly.Application.Common.Interfaces;
 using Walletly.Application.Interfaces;
+using Walletly.Api.Authorization;
 using Walletly.Application.Services;
 using Walletly.Domain.Interfaces;
+using Walletly.Infrastructure.BackgroundJobs;
 using Walletly.Infrastructure.Data;
+using Walletly.Infrastructure.Notifications;
 using Walletly.Infrastructure.Repositories;
 using Walletly.Infrastructure.Security;
 
@@ -21,6 +24,10 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<WalletlyDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+// Background jobs (Hangfire, PostgreSQL storage) and email notifications (Brevo)
+builder.Services.AddBackgroundJobs(connectionString);
+builder.Services.AddEmailNotifications(builder.Configuration);
+
 // Configure JWT Settings
 var jwtSettings = new JwtSettings();
 builder.Configuration.GetSection(JwtSettings.SectionName).Bind(jwtSettings);
@@ -33,6 +40,20 @@ builder.Services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IPlatformAuthService, PlatformAuthService>();
 builder.Services.AddScoped<PlatformDataSeeder>();
+
+// Configure tenant webhook secret encryption
+var webhookSecretSettings = new WebhookSecretSettings();
+builder.Configuration.GetSection(WebhookSecretSettings.SectionName).Bind(webhookSecretSettings);
+
+// Built eagerly so a missing or malformed key stops startup instead of failing on the first tenant request.
+builder.Services.AddSingleton<IWebhookSecretProtector>(new AesWebhookSecretProtector(webhookSecretSettings));
+
+// Tenant Auth & Settings
+builder.Services.AddScoped<ITenantRepository, PostgresTenantRepository>();
+builder.Services.AddScoped<ITenantUserRepository, PostgresTenantUserRepository>();
+builder.Services.AddScoped<ITenantTokenGenerator, TenantJwtTokenGenerator>();
+builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddScoped<ITenantAuthService, TenantAuthService>();
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(options =>
@@ -58,7 +79,17 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Platform and tenant tokens share one signing key. user_type keeps each token inside its own surface.
+    options.AddPolicy(AuthorizationPolicies.PlatformTenantsWrite, policy => policy
+        .RequireClaim("user_type", "platform_user")
+        .RequireClaim("permission", "tenants.write"));
+
+    options.AddPolicy(AuthorizationPolicies.TenantUser, policy => policy
+        .RequireClaim("user_type", "tenant_user")
+        .RequireClaim("tenant_id"));
+});
 
 // OpenAPI
 builder.Services.AddOpenApi();

@@ -1,0 +1,1 @@
+Your Walletly verification code is {{otp_code}}

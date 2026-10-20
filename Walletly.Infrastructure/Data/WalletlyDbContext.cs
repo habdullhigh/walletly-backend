@@ -15,6 +15,11 @@ public class WalletlyDbContext : DbContext, IUnitOfWork
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<PlatformUserRole> PlatformUserRoles => Set<PlatformUserRole>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<TenantEnvironment> TenantEnvironments => Set<TenantEnvironment>();
+    public DbSet<TenantAllowedUrl> TenantAllowedUrls => Set<TenantAllowedUrl>();
+    public DbSet<TenantApiKey> TenantApiKeys => Set<TenantApiKey>();
+    public DbSet<TenantUser> TenantUsers => Set<TenantUser>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,7 +93,88 @@ public class WalletlyDbContext : DbContext, IUnitOfWork
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        ConfigureTenancy(modelBuilder);
+
         SeedData(modelBuilder);
+    }
+
+    private static void ConfigureTenancy(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Tenant>(entity =>
+        {
+            entity.ToTable("tenants");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.TwoFactorEnabled).HasDefaultValue(false);
+            entity.Property(e => e.CreatedAt);
+        });
+
+        modelBuilder.Entity<TenantEnvironment>(entity =>
+        {
+            entity.ToTable("tenant_environments");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Mode).HasConversion<string>().HasMaxLength(10);
+            entity.Property(e => e.ProtectedWebhookSecret).IsRequired();
+            entity.HasIndex(e => new { e.TenantId, e.Mode }).IsUnique();
+
+            entity.HasOne<Tenant>()
+                .WithMany()
+                .HasForeignKey(e => e.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TenantAllowedUrl>(entity =>
+        {
+            entity.ToTable("tenant_allowed_urls");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Kind).HasConversion<string>().HasMaxLength(10);
+            entity.Property(e => e.Url).IsRequired().HasMaxLength(2048);
+            entity.HasIndex(e => new { e.TenantEnvironmentId, e.Kind, e.Url }).IsUnique();
+
+            entity.HasOne<TenantEnvironment>()
+                .WithMany()
+                .HasForeignKey(e => e.TenantEnvironmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TenantApiKey>(entity =>
+        {
+            entity.ToTable("tenant_api_keys");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.KeyId).IsRequired().HasMaxLength(32);
+            entity.HasIndex(e => e.KeyId).IsUnique();
+            entity.Property(e => e.SecretHash).IsRequired();
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CreatedAt);
+            entity.Property(e => e.RevokedAt);
+            entity.Ignore(e => e.IsActive);
+
+            entity.HasOne<TenantEnvironment>()
+                .WithMany()
+                .HasForeignKey(e => e.TenantEnvironmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TenantUser>(entity =>
+        {
+            entity.ToTable("tenant_users");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.Property(e => e.PasswordHash).IsRequired();
+            entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
+            entity.Ignore(e => e.FullName);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedAt);
+            entity.Property(e => e.LastLoginAt);
+
+            entity.HasOne<Tenant>()
+                .WithMany()
+                .HasForeignKey(e => e.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 
     private static void SeedData(ModelBuilder modelBuilder)
