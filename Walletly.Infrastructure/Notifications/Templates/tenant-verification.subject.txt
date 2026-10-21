@@ -1,0 +1,1 @@
+Verify your email for {{tenant_name}} on Walletly

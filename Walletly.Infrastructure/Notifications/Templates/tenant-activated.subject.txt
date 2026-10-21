@@ -1,0 +1,1 @@
+Your Walletly account for {{tenant_name}} is now active!

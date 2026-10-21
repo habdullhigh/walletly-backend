@@ -93,4 +93,86 @@ public sealed class EmailTemplateRendererTests
         Assert.True(result.IsFailure);
         Assert.Equal(NotificationErrors.TemplateNotFound, result.Error);
     }
+
+    [Fact]
+    public void TenantVerificationTemplate_RendersSubjectAndBody_WithAllTokens()
+    {
+        var result = _renderer.Render("tenant-verification", new Dictionary<string, string>
+        {
+            ["first_name"] = "Alice",
+            ["tenant_name"] = "Acme Corp",
+            ["otp_code"] = "948201",
+            ["expires_in_minutes"] = "15"
+        });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Verify your email for Acme Corp on Walletly", result.Value.Subject);
+        Assert.Contains("Hi Alice,", result.Value.HtmlContent);
+        Assert.Contains("Acme Corp", result.Value.HtmlContent);
+        Assert.Contains("948201", result.Value.HtmlContent);
+        Assert.Contains("15 minutes", result.Value.HtmlContent);
+        Assert.DoesNotContain("{{", result.Value.HtmlContent);
+    }
+
+    [Fact]
+    public void TenantWelcomeTemplate_RendersSubjectAndBody_WithAllTokens()
+    {
+        var result = _renderer.Render("tenant-welcome", new Dictionary<string, string>
+        {
+            ["first_name"] = "Alice",
+            ["tenant_name"] = "Acme Corp",
+            ["dashboard_url"] = "https://app.walletly.io/dashboard",
+            ["support_email"] = "dev-support@walletly.io"
+        });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Welcome to Walletly, Acme Corp!", result.Value.Subject);
+        Assert.Contains("Welcome aboard, Alice!", result.Value.HtmlContent);
+        Assert.Contains("Acme Corp", result.Value.HtmlContent);
+        Assert.Contains("https://app.walletly.io/dashboard", result.Value.HtmlContent);
+        Assert.Contains("dev-support@walletly.io", result.Value.HtmlContent);
+        Assert.DoesNotContain("{{", result.Value.HtmlContent);
+    }
+
+    [Fact]
+    public void TenantInvitationTemplate_RendersSubjectAndBody_WithAllTokens()
+    {
+        var result = _renderer.Render("tenant-invitation", new Dictionary<string, string>
+        {
+            ["invitee_name"] = "Bob Smith",
+            ["inviter_name"] = "Alice Johnson",
+            ["tenant_name"] = "Acme Corp",
+            ["role"] = "Developer",
+            ["invite_url"] = "https://app.walletly.io/invites/abc-123",
+            ["expires_in_days"] = "7"
+        });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Alice Johnson invited you to join Acme Corp on Walletly", result.Value.Subject);
+        Assert.Contains("Hello Bob Smith,", result.Value.HtmlContent);
+        Assert.Contains("Alice Johnson", result.Value.HtmlContent);
+        Assert.Contains("Acme Corp", result.Value.HtmlContent);
+        Assert.Contains("Developer", result.Value.HtmlContent);
+        Assert.Contains("https://app.walletly.io/invites/abc-123", result.Value.HtmlContent);
+        Assert.Contains("7 days", result.Value.HtmlContent);
+        Assert.DoesNotContain("{{", result.Value.HtmlContent);
+    }
+
+    [Fact]
+    public void TenantActivatedTemplate_RendersSubjectAndBody_WithAllTokens()
+    {
+        var result = _renderer.Render("tenant-activated", new Dictionary<string, string>
+        {
+            ["first_name"] = "Alice",
+            ["tenant_name"] = "Acme Corp",
+            ["dashboard_url"] = "https://app.walletly.io/dashboard"
+        });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Your Walletly account for Acme Corp is now active!", result.Value.Subject);
+        Assert.Contains("Congratulations, Alice!", result.Value.HtmlContent);
+        Assert.Contains("Acme Corp", result.Value.HtmlContent);
+        Assert.Contains("https://app.walletly.io/dashboard", result.Value.HtmlContent);
+        Assert.DoesNotContain("{{", result.Value.HtmlContent);
+    }
 }
