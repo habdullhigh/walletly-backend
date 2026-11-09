@@ -4,12 +4,15 @@ using Walletly.Domain.Enums;
 using Walletly.Domain.Interfaces;
 using Walletly.Infrastructure.Data;
 
-namespace Walletly.Infrastructure.Repositories;
+namespace Walletly.Infrastructure.Repositories.Postgres;
 
 public class PostgresTenantRepository(WalletlyDbContext context) : ITenantRepository
 {
     public Task<Tenant?> GetByIdAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
         context.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
+
+    public Task<TenantEnvironment?> GetEnvironmentByIdAsync(Guid environmentId, CancellationToken cancellationToken = default) =>
+        context.TenantEnvironments.FirstOrDefaultAsync(e => e.Id == environmentId, cancellationToken);
 
     public async Task<IReadOnlyList<TenantEnvironment>> GetEnvironmentsAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
         await context.TenantEnvironments
@@ -33,6 +36,9 @@ public class PostgresTenantRepository(WalletlyDbContext context) : ITenantReposi
 
     public Task<TenantApiKey?> GetApiKeyAsync(Guid tenantEnvironmentId, Guid apiKeyId, CancellationToken cancellationToken = default) =>
         context.TenantApiKeys.FirstOrDefaultAsync(k => k.TenantEnvironmentId == tenantEnvironmentId && k.Id == apiKeyId, cancellationToken);
+
+    public Task<TenantApiKey?> GetActiveApiKeyByKeyIdAsync(string keyId, CancellationToken cancellationToken = default) =>
+        context.TenantApiKeys.FirstOrDefaultAsync(k => k.KeyId == keyId && k.RevokedAt == null, cancellationToken);
 
     public void Add(Tenant tenant) => context.Tenants.Add(tenant);
 

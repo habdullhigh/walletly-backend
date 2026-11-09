@@ -46,6 +46,9 @@ x86/
 ## EF Core
 Migrations/*.cs.bak
 
+## Local application logs (Walletly.Api writes logs/walletly-api.log)
+logs/
+
 ## Secrets / local config
 appsettings.*.local.json
 *.env

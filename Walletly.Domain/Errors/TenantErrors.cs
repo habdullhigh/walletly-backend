@@ -35,4 +35,12 @@ public static class TenantErrors
     public static readonly Error Inactive = Error.Forbidden(
         "Tenants.Inactive",
         "The tenant account is deactivated.");
+
+    public static readonly Error AlreadyActive = Error.Conflict(
+        "Tenants.AlreadyActive",
+        "The tenant is already active.");
+
+    public static readonly Error LiveModeNotActivated = Error.Forbidden(
+        "Tenants.LiveModeNotActivated",
+        "Live mode is unavailable until the platform team activates this tenant.");
 }

@@ -20,6 +20,14 @@ public static class TenantUserErrors
         "TenantUsers.WeakPassword",
         "The password must be at least 8 characters.");
 
+    public static readonly Error PasswordConfirmationRequired = Error.Validation(
+        "TenantUsers.PasswordConfirmationRequired",
+        "Password confirmation is required.");
+
+    public static readonly Error PasswordMismatch = Error.Validation(
+        "TenantUsers.PasswordMismatch",
+        "The password and password confirmation do not match.");
+
     public static readonly Error InvalidPasswordHash = Error.Validation(
         "TenantUsers.InvalidPasswordHash",
         "A password hash is required.");

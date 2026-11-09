@@ -6,7 +6,7 @@ public sealed class EmailOptions
 {
     public const string SectionName = "Email";
 
-    // Only "Brevo" is supported today. Adding a provider means adding it to EmailOptionsValidator too.
+    // Supported: "Smtp", "Brevo". Adding a provider means adding it to EmailOptionsValidator too.
     [Required]
     public string Provider { get; set; } = string.Empty;
 

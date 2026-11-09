@@ -4,4 +4,5 @@ public static class AuthorizationPolicies
 {
     public const string PlatformTenantsWrite = "PlatformTenantsWrite";
     public const string TenantUser = "TenantUser";
+    public const string TenantApiKey = "TenantApiKey";
 }

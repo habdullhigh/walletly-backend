@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using SharedKernel;
+using Walletly.Api.Responses;
 
 namespace Walletly.Api.Controllers;
 
 public abstract class ApiControllerBase : ControllerBase
 {
-    protected IActionResult ToProblem(Error error)
+    // Failures keep their HTTP status and use the standard envelope with hasError = true.
+    protected IActionResult ToErrorResponse(Error error)
     {
         var statusCode = error.Type switch
         {
@@ -16,6 +18,6 @@ public abstract class ApiControllerBase : ControllerBase
             _ => StatusCodes.Status400BadRequest
         };
 
-        return Problem(title: error.Code, detail: error.Description, statusCode: statusCode);
+        return StatusCode(statusCode, ApiResponse.Failure(error.Description, [new ApiError { Code = error.Code, Message = error.Description }]));
     }
 }

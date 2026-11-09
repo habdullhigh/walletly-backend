@@ -4,5 +4,5 @@ namespace Walletly.Application.Common.Interfaces;
 
 public interface ITenantTokenGenerator
 {
-    string GenerateToken(TenantUser user);
+    string GenerateToken(TenantAccountOwner owner);
 }

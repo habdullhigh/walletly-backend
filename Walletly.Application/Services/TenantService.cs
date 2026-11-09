@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using SharedKernel;
+using Walletly.Application.Common;
 using Walletly.Application.Common.Interfaces;
 using Walletly.Application.DTOs.Tenants;
 using Walletly.Application.Interfaces;
@@ -14,23 +15,22 @@ public class TenantService : ITenantService
 {
     private const int MinPasswordLength = 8;
     private const string ApiKeyPrefix = "wk";
-    private const string WebhookSecretPrefix = "whsec_";
 
     private readonly ITenantRepository _tenantRepository;
-    private readonly ITenantUserRepository _tenantUserRepository;
+    private readonly ITenantAccountOwnerRepository _accountOwnerRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IWebhookSecretProtector _webhookSecretProtector;
 
     public TenantService(
         ITenantRepository tenantRepository,
-        ITenantUserRepository tenantUserRepository,
+        ITenantAccountOwnerRepository accountOwnerRepository,
         IUnitOfWork unitOfWork,
         IPasswordHasher passwordHasher,
         IWebhookSecretProtector webhookSecretProtector)
     {
         _tenantRepository = tenantRepository;
-        _tenantUserRepository = tenantUserRepository;
+        _accountOwnerRepository = accountOwnerRepository;
         _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
         _webhookSecretProtector = webhookSecretProtector;
@@ -39,7 +39,7 @@ public class TenantService : ITenantService
     public async Task<Result<TenantDto>> CreateAsync(CreateTenantRequest request, CancellationToken cancellationToken = default)
     {
         var ownerEmail = request.OwnerEmail.Trim().ToLowerInvariant();
-        if (await _tenantUserRepository.GetByEmailAsync(ownerEmail, cancellationToken) is not null)
+        if (await _accountOwnerRepository.GetByEmailAsync(ownerEmail, cancellationToken) is not null)
         {
             return TenantUserErrors.EmailTaken;
         }
@@ -59,12 +59,13 @@ public class TenantService : ITenantService
 
         var tenant = tenantResult.Value;
 
-        var ownerResult = TenantUser.Create(
+        var ownerResult = TenantAccountOwner.Create(
             tenant.Id,
             ownerEmail,
             _passwordHasher.HashPassword(request.OwnerPassword),
             request.OwnerFirstName,
             request.OwnerLastName,
+            TenantTeamRole.Admin,
             now);
 
         if (ownerResult.IsFailure)
@@ -74,13 +75,10 @@ public class TenantService : ITenantService
 
         _tenantRepository.Add(tenant);
 
-        // Every tenant gets both environments up front, so test and live keys can coexist from day one.
-        foreach (var mode in Enum.GetValues<TenantMode>())
-        {
-            _tenantRepository.AddEnvironment(TenantEnvironment.Create(tenant.Id, mode, _webhookSecretProtector.Protect(GenerateWebhookSecret())));
-        }
+        // Every tenant starts with a Test environment. The Live environment is created when the tenant is activated.
+        _tenantRepository.AddEnvironment(CreateEnvironment(tenant.Id, TenantMode.Test));
 
-        _tenantUserRepository.Add(ownerResult.Value);
+        _accountOwnerRepository.Add(ownerResult.Value);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await BuildDtoAsync(tenant, cancellationToken);
@@ -113,11 +111,13 @@ public class TenantService : ITenantService
 
     public async Task<Result<TenantDto>> UpdateAllowedUrlsAsync(Guid tenantId, TenantMode mode, UpdateAllowedUrlsRequest request, CancellationToken cancellationToken = default)
     {
-        var environment = await _tenantRepository.GetEnvironmentAsync(tenantId, mode, cancellationToken);
-        if (environment is null)
+        var environmentResult = await ResolveEnvironmentAsync(tenantId, mode, cancellationToken);
+        if (environmentResult.IsFailure)
         {
-            return TenantErrors.EnvironmentNotFound;
+            return environmentResult.Error;
         }
+
+        var environment = environmentResult.Value;
 
         // Validate both lists before touching the database, so a bad entry changes nothing.
         var webhookUrls = BuildAllowedUrls(environment.Id, mode, AllowedUrlKind.Webhook, request.WebhookUrls);
@@ -141,13 +141,15 @@ public class TenantService : ITenantService
 
     public async Task<Result<RotatedWebhookSecretDto>> RotateWebhookSecretAsync(Guid tenantId, TenantMode mode, CancellationToken cancellationToken = default)
     {
-        var environment = await _tenantRepository.GetEnvironmentAsync(tenantId, mode, cancellationToken);
-        if (environment is null)
+        var environmentResult = await ResolveEnvironmentAsync(tenantId, mode, cancellationToken);
+        if (environmentResult.IsFailure)
         {
-            return TenantErrors.EnvironmentNotFound;
+            return environmentResult.Error;
         }
 
-        var secret = GenerateWebhookSecret();
+        var environment = environmentResult.Value;
+
+        var secret = WebhookSecrets.Generate();
         environment.RotateWebhookSecret(_webhookSecretProtector.Protect(secret));
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -160,11 +162,13 @@ public class TenantService : ITenantService
 
     public async Task<Result<CreatedApiKeyDto>> CreateApiKeyAsync(Guid tenantId, TenantMode mode, CreateApiKeyRequest request, CancellationToken cancellationToken = default)
     {
-        var environment = await _tenantRepository.GetEnvironmentAsync(tenantId, mode, cancellationToken);
-        if (environment is null)
+        var environmentResult = await ResolveEnvironmentAsync(tenantId, mode, cancellationToken);
+        if (environmentResult.IsFailure)
         {
-            return TenantErrors.EnvironmentNotFound;
+            return environmentResult.Error;
         }
+
+        var environment = environmentResult.Value;
 
         // keyId is public and used for lookup. The secret is shown once and stored only as an Argon2 hash.
         var keyId = RandomHex(12);
@@ -194,11 +198,13 @@ public class TenantService : ITenantService
 
     public async Task<Result<List<ApiKeyDto>>> ListApiKeysAsync(Guid tenantId, TenantMode mode, CancellationToken cancellationToken = default)
     {
-        var environment = await _tenantRepository.GetEnvironmentAsync(tenantId, mode, cancellationToken);
-        if (environment is null)
+        var environmentResult = await ResolveEnvironmentAsync(tenantId, mode, cancellationToken);
+        if (environmentResult.IsFailure)
         {
-            return TenantErrors.EnvironmentNotFound;
+            return environmentResult.Error;
         }
+
+        var environment = environmentResult.Value;
 
         var apiKeys = await _tenantRepository.GetApiKeysAsync(environment.Id, cancellationToken);
         return apiKeys.Select(k => ToApiKeyDto(k, mode)).ToList();
@@ -206,11 +212,13 @@ public class TenantService : ITenantService
 
     public async Task<Result> RevokeApiKeyAsync(Guid tenantId, TenantMode mode, Guid apiKeyId, CancellationToken cancellationToken = default)
     {
-        var environment = await _tenantRepository.GetEnvironmentAsync(tenantId, mode, cancellationToken);
-        if (environment is null)
+        var environmentResult = await ResolveEnvironmentAsync(tenantId, mode, cancellationToken);
+        if (environmentResult.IsFailure)
         {
-            return TenantErrors.EnvironmentNotFound;
+            return environmentResult.Error;
         }
+
+        var environment = environmentResult.Value;
 
         var apiKey = await _tenantRepository.GetApiKeyAsync(environment.Id, apiKeyId, cancellationToken);
         if (apiKey is null)
@@ -249,12 +257,33 @@ public class TenantService : ITenantService
         {
             Id = tenant.Id,
             Name = tenant.Name,
+            Status = tenant.Status.ToString(),
             IsActive = tenant.IsActive,
             TwoFactorEnabled = tenant.TwoFactorEnabled,
             CreatedAt = tenant.CreatedAt,
             Environments = environmentDtos
         };
     }
+
+    // The single place that decides whether a mode is usable. Live is locked until the tenant is activated,
+    // and the Live environment row only exists after activation.
+    private async Task<Result<TenantEnvironment>> ResolveEnvironmentAsync(Guid tenantId, TenantMode mode, CancellationToken cancellationToken)
+    {
+        if (mode == TenantMode.Live)
+        {
+            var tenant = await _tenantRepository.GetByIdAsync(tenantId, cancellationToken);
+            if (tenant is null || !tenant.IsLiveModeEnabled)
+            {
+                return TenantErrors.LiveModeNotActivated;
+            }
+        }
+
+        var environment = await _tenantRepository.GetEnvironmentAsync(tenantId, mode, cancellationToken);
+        return environment is null ? TenantErrors.EnvironmentNotFound : environment;
+    }
+
+    private TenantEnvironment CreateEnvironment(Guid tenantId, TenantMode mode) =>
+        TenantEnvironment.Create(tenantId, mode, _webhookSecretProtector.Protect(WebhookSecrets.Generate()));
 
     private static Result<IReadOnlyList<TenantAllowedUrl>> BuildAllowedUrls(Guid environmentId, TenantMode mode, AllowedUrlKind kind, IEnumerable<string> urls)
     {
@@ -286,8 +315,6 @@ public class TenantService : ITenantService
     private static string KeyPrefix(TenantMode mode, string keyId) => $"{ApiKeyPrefix}_{ModeName(mode)}_{keyId}";
 
     private static string ModeName(TenantMode mode) => mode.ToString().ToLowerInvariant();
-
-    private static string GenerateWebhookSecret() => WebhookSecretPrefix + Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 
     private static string RandomHex(int byteCount) => Convert.ToHexString(RandomNumberGenerator.GetBytes(byteCount)).ToLowerInvariant();
 }

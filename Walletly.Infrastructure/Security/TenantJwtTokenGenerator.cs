@@ -16,7 +16,7 @@ public class TenantJwtTokenGenerator : ITenantTokenGenerator
         _jwtSettings = jwtSettings;
     }
 
-    public string GenerateToken(TenantUser user)
+    public string GenerateToken(TenantAccountOwner owner)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -24,14 +24,16 @@ public class TenantJwtTokenGenerator : ITenantTokenGenerator
         // user_type and tenant_id keep tenant tokens from satisfying platform policies, and the reverse.
         var claims = new List<Claim>
         {
-            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new(JwtRegisteredClaimNames.Email, user.Email),
-            new(JwtRegisteredClaimNames.Name, user.FullName),
-            new("first_name", user.FirstName),
-            new("last_name", user.LastName),
+            new(JwtRegisteredClaimNames.Sub, owner.Id.ToString()),
+            new(JwtRegisteredClaimNames.Email, owner.Email),
+            new(JwtRegisteredClaimNames.Name, owner.FullName),
+            new("first_name", owner.FirstName),
+            new("last_name", owner.LastName),
+            new(ClaimTypes.Role, owner.Role.ToString().ToLowerInvariant()),
+            new("role", owner.Role.ToString().ToLowerInvariant()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new("user_type", "tenant_user"),
-            new("tenant_id", user.TenantId.ToString())
+            new("tenant_id", owner.TenantId.ToString())
         };
 
         var tokenDescriptor = new SecurityTokenDescriptor

@@ -2,13 +2,17 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using SharedKernel;
 using Walletly.Application.Abstractions.Notifications;
 
 namespace Walletly.Infrastructure.Notifications.Providers;
 
-public sealed class BrevoEmailProvider(HttpClient httpClient) : IEmailProvider
+public sealed class BrevoEmailProvider(HttpClient httpClient, ILogger<BrevoEmailProvider> logger) : IEmailProvider
 {
+    // Brevo error bodies are logged in full for diagnosis. They can echo recipient addresses, so keep this log local.
+    private const int MaxLoggedBodyLength = 1000;
+
     // Keyed-service name. Matches Email:Provider "Brevo" once lowercased.
     public const string Key = "brevo";
 
@@ -37,8 +41,13 @@ public sealed class BrevoEmailProvider(HttpClient httpClient) : IEmailProvider
                 return await ReadMessageIdAsync(response, cancellationToken);
             }
 
+            // Response bodies are logged, not copied into the error, so the exception message stays free of addresses.
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            logger.LogWarning(
+                "Brevo returned {StatusCode} for smtp/email. Body: {ProviderBody}",
+                (int)response.StatusCode, body.Length > MaxLoggedBodyLength ? body[..MaxLoggedBodyLength] : body);
+
             // 429 and 5xx are temporary. Other 4xx mean the request itself is wrong, so retrying will not help.
-            // Response bodies are not copied into the error, since they can echo recipient addresses.
             if (response.StatusCode == HttpStatusCode.TooManyRequests || (int)response.StatusCode >= 500)
             {
                 return NotificationErrors.ProviderUnavailable;

@@ -12,18 +12,18 @@ public sealed class EmailOptionsValidatorTests
     [Fact]
     public void UnknownProvider_Fails_NamingTheProvider()
     {
-        var validator = new EmailOptionsValidator(Options.Create(ValidBrevo()));
+        var validator = new EmailOptionsValidator(Options.Create(ValidBrevo()), Options.Create(ValidSmtp()));
 
-        var result = validator.Validate(null, ValidEmail("Smtp"));
+        var result = validator.Validate(null, ValidEmail("Sendgrid"));
 
         Assert.True(result.Failed);
-        Assert.Contains("'Smtp' is not supported", result.FailureMessage);
+        Assert.Contains("'Sendgrid' is not supported", result.FailureMessage);
     }
 
     [Fact]
     public void MissingBrevoApiKey_Fails_WithoutEchoingAnyKey()
     {
-        var validator = new EmailOptionsValidator(Options.Create(new BrevoOptions { ApiKey = string.Empty }));
+        var validator = new EmailOptionsValidator(Options.Create(new BrevoOptions { ApiKey = string.Empty }), Options.Create(ValidSmtp()));
 
         var result = validator.Validate(null, ValidEmail("Brevo"));
 
@@ -34,7 +34,7 @@ public sealed class EmailOptionsValidatorTests
     [Fact]
     public void ProviderName_IsMatchedCaseInsensitively()
     {
-        var validator = new EmailOptionsValidator(Options.Create(ValidBrevo()));
+        var validator = new EmailOptionsValidator(Options.Create(ValidBrevo()), Options.Create(ValidSmtp()));
 
         var result = validator.Validate(null, ValidEmail("BREVO"));
 
@@ -46,7 +46,7 @@ public sealed class EmailOptionsValidatorTests
     {
         using var host = BuildHost(new Dictionary<string, string?>
         {
-            ["Email:Provider"] = "Smtp",
+            ["Email:Provider"] = "Sendgrid",
             ["Email:SenderEmail"] = "noreply@walletly.test",
             ["Email:SenderName"] = "Walletly",
             ["Email:Brevo:ApiKey"] = "test-key"
@@ -54,7 +54,7 @@ public sealed class EmailOptionsValidatorTests
 
         var exception = await Assert.ThrowsAnyAsync<OptionsValidationException>(() => host.StartAsync());
 
-        Assert.Contains("'Smtp' is not supported", exception.Message);
+        Assert.Contains("'Sendgrid' is not supported", exception.Message);
     }
 
     [Fact]
@@ -89,4 +89,12 @@ public sealed class EmailOptionsValidatorTests
     };
 
     private static BrevoOptions ValidBrevo() => new() { ApiKey = "test-key" };
+
+    private static SmtpOptions ValidSmtp() => new()
+    {
+        Host = "smtp.mailtrap.io",
+        Port = 587,
+        UserName = "user",
+        Password = "password"
+    };
 }

@@ -3,7 +3,7 @@ using Walletly.Domain.Entities;
 using Walletly.Domain.Interfaces;
 using Walletly.Infrastructure.Data;
 
-namespace Walletly.Infrastructure.Repositories;
+namespace Walletly.Infrastructure.Repositories.Postgres;
 
 public class PostgresPlatformUserRepository(WalletlyDbContext context) : IPlatformUserRepository
 {

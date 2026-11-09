@@ -6,11 +6,13 @@ namespace Walletly.Domain.Interfaces;
 public interface ITenantRepository
 {
     Task<Tenant?> GetByIdAsync(Guid tenantId, CancellationToken cancellationToken = default);
+    Task<TenantEnvironment?> GetEnvironmentByIdAsync(Guid environmentId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TenantEnvironment>> GetEnvironmentsAsync(Guid tenantId, CancellationToken cancellationToken = default);
     Task<TenantEnvironment?> GetEnvironmentAsync(Guid tenantId, TenantMode mode, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TenantAllowedUrl>> GetAllowedUrlsAsync(Guid tenantEnvironmentId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TenantApiKey>> GetApiKeysAsync(Guid tenantEnvironmentId, CancellationToken cancellationToken = default);
     Task<TenantApiKey?> GetApiKeyAsync(Guid tenantEnvironmentId, Guid apiKeyId, CancellationToken cancellationToken = default);
+    Task<TenantApiKey?> GetActiveApiKeyByKeyIdAsync(string keyId, CancellationToken cancellationToken = default);
 
     // Stage writes only. They reach the database when IUnitOfWork.SaveChangesAsync runs.
     void Add(Tenant tenant);

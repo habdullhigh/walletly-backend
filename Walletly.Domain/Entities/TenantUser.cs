@@ -1,47 +1,62 @@
-using System.Text.RegularExpressions;
 using SharedKernel;
+using Walletly.Domain.Common;
 using Walletly.Domain.Errors;
 
 namespace Walletly.Domain.Entities;
 
-public sealed partial class TenantUser : Entity
+// Represents an end-user / customer created and managed by the tenant within a specific environment (Test or Live).
+// TenantUsers are purely managed via API keys and never log in to Walletly directly.
+public sealed class TenantUser : Entity
 {
-    private const int MaxEmailLength = 255;
     private const int MaxNameLength = 100;
+    private const int MaxExternalReferenceLength = 100;
 
     private TenantUser()
     {
     }
 
-    private TenantUser(Guid id, Guid tenantId, string email, string passwordHash, string firstName, string lastName, DateTime createdAtUtc)
+    private TenantUser(
+        Guid id,
+        Guid tenantEnvironmentId,
+        string email,
+        string firstName,
+        string lastName,
+        Guid? tenantRoleId,
+        string? externalReference,
+        DateTime createdAtUtc)
         : base(id)
     {
-        TenantId = tenantId;
+        TenantEnvironmentId = tenantEnvironmentId;
         Email = email;
-        PasswordHash = passwordHash;
         FirstName = firstName;
         LastName = lastName;
+        TenantRoleId = tenantRoleId;
+        ExternalReference = externalReference;
         IsActive = true;
         CreatedAt = createdAtUtc;
     }
 
-    public Guid TenantId { get; private set; }
+    public Guid TenantEnvironmentId { get; private set; }
+    public Guid? TenantRoleId { get; private set; }
     public string Email { get; private set; } = string.Empty;
-    public string PasswordHash { get; private set; } = string.Empty;
     public string FirstName { get; private set; } = string.Empty;
     public string LastName { get; private set; } = string.Empty;
     public string FullName => $"{FirstName} {LastName}".Trim();
+    public string? ExternalReference { get; private set; }
     public bool IsActive { get; private set; }
     public DateTime CreatedAt { get; private set; }
-    public DateTime? LastLoginAt { get; private set; }
 
-    [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
-    private static partial Regex EmailPattern();
-
-    public static Result<TenantUser> Create(Guid tenantId, string email, string passwordHash, string firstName, string lastName, DateTime createdAtUtc)
+    public static Result<TenantUser> Create(
+        Guid tenantEnvironmentId,
+        string email,
+        string firstName,
+        string lastName,
+        Guid? tenantRoleId,
+        string? externalReference,
+        DateTime createdAtUtc)
     {
-        var normalisedEmail = email.Trim().ToLowerInvariant();
-        if (normalisedEmail.Length is 0 or > MaxEmailLength || !EmailPattern().IsMatch(normalisedEmail))
+        var normalisedEmail = EmailAddress.Normalise(email);
+        if (!EmailAddress.IsValid(normalisedEmail))
         {
             return TenantUserErrors.InvalidEmail;
         }
@@ -58,22 +73,52 @@ public sealed partial class TenantUser : Entity
             return TenantUserErrors.InvalidLastName;
         }
 
-        if (string.IsNullOrWhiteSpace(passwordHash))
+        var cleanRef = externalReference?.Trim();
+        if (cleanRef is not null && cleanRef.Length > MaxExternalReferenceLength)
         {
-            return TenantUserErrors.InvalidPasswordHash;
+            cleanRef = cleanRef[..MaxExternalReferenceLength];
         }
 
-        return new TenantUser(Guid.NewGuid(), tenantId, normalisedEmail, passwordHash, normalisedFirstName, normalisedLastName, createdAtUtc);
+        return new TenantUser(
+            Guid.NewGuid(),
+            tenantEnvironmentId,
+            normalisedEmail,
+            normalisedFirstName,
+            normalisedLastName,
+            tenantRoleId,
+            cleanRef,
+            createdAtUtc);
     }
 
-    public Result RecordLogin(DateTime loggedInAtUtc)
+    public void AssignRole(Guid? roleId) => TenantRoleId = roleId;
+
+    public void Deactivate() => IsActive = false;
+
+    public void Activate() => IsActive = true;
+
+    public Result UpdateDetails(string firstName, string lastName, string? externalReference)
     {
-        if (!IsActive)
+        var normalisedFirstName = firstName.Trim();
+        if (normalisedFirstName.Length is 0 or > MaxNameLength)
         {
-            return TenantUserErrors.Inactive;
+            return TenantUserErrors.InvalidFirstName;
         }
 
-        LastLoginAt = loggedInAtUtc;
+        var normalisedLastName = lastName.Trim();
+        if (normalisedLastName.Length is 0 or > MaxNameLength)
+        {
+            return TenantUserErrors.InvalidLastName;
+        }
+
+        var cleanRef = externalReference?.Trim();
+        if (cleanRef is not null && cleanRef.Length > MaxExternalReferenceLength)
+        {
+            cleanRef = cleanRef[..MaxExternalReferenceLength];
+        }
+
+        FirstName = normalisedFirstName;
+        LastName = normalisedLastName;
+        ExternalReference = cleanRef;
         return Result.Success();
     }
 }

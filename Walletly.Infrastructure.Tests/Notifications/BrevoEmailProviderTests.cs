@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 using SharedKernel;
 using Walletly.Application.Abstractions.Notifications;
 using Walletly.Infrastructure.Notifications.Providers;
@@ -141,7 +142,7 @@ public sealed class BrevoEmailProviderTests
             BaseAddress = new Uri("https://api.brevo.com/v3/")
         };
         httpClient.DefaultRequestHeaders.Add("api-key", "test-key");
-        return new BrevoEmailProvider(httpClient);
+        return new BrevoEmailProvider(httpClient, NullLogger<BrevoEmailProvider>.Instance);
     }
 
     private static HttpResponseMessage Created(string messageId) =>

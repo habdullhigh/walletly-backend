@@ -238,6 +238,116 @@ namespace Walletly.Infrastructure.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Walletly.Domain.Entities.TemporaryTenant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AdminNotes")
+                        .HasColumnType("text")
+                        .HasColumnName("admin_notes");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("approved_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("email");
+
+                    b.Property<string>("ExpectedMonthlyVolume")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("expected_monthly_volume");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("first_name");
+
+                    b.Property<DateTime?>("InvitationExpiresAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("invitation_expires_at");
+
+                    b.Property<string>("InvitationTokenHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("invitation_token");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("last_name");
+
+                    b.Property<int>("OtpAttemptsCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("otp_attempts_count");
+
+                    b.Property<string>("OtpCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("otp_code");
+
+                    b.Property<DateTime?>("OtpExpiresAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("otp_expires_at");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("text")
+                        .HasColumnName("password_hash");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("source");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TenantName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("tenant_name");
+
+                    b.Property<string[]>("UseCases")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("use_cases")
+                        .HasDefaultValueSql("'{}'");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email");
+
+                    b.HasIndex("InvitationTokenHash");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("temporary_tenants", (string)null);
+                });
+
             modelBuilder.Entity("Walletly.Domain.Entities.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -257,6 +367,13 @@ namespace Walletly.Infrastructure.Data.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Active");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -265,6 +382,60 @@ namespace Walletly.Infrastructure.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("tenants", (string)null);
+                });
+
+            modelBuilder.Entity("Walletly.Domain.Entities.TenantAccountOwner", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("tenant_account_owners", (string)null);
                 });
 
             modelBuilder.Entity("Walletly.Domain.Entities.TenantAllowedUrl", b =>
@@ -359,6 +530,55 @@ namespace Walletly.Infrastructure.Data.Migrations
                     b.ToTable("tenant_environments", (string)null);
                 });
 
+            modelBuilder.Entity("Walletly.Domain.Entities.TenantRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("TenantEnvironmentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantEnvironmentId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("tenant_roles", (string)null);
+                });
+
+            modelBuilder.Entity("Walletly.Domain.Entities.TenantRolePermission", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Permission")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("RoleId", "Permission");
+
+                    b.ToTable("tenant_role_permissions", (string)null);
+                });
+
             modelBuilder.Entity("Walletly.Domain.Entities.TenantUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -373,6 +593,10 @@ namespace Walletly.Infrastructure.Data.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
+                    b.Property<string>("ExternalReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -383,27 +607,25 @@ namespace Walletly.Infrastructure.Data.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
 
-                    b.Property<DateTime?>("LastLoginAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<Guid>("TenantEnvironmentId")
+                        .HasColumnType("uuid");
 
-                    b.Property<Guid>("TenantId")
+                    b.Property<Guid?>("TenantRoleId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Email")
+                    b.HasIndex("TenantRoleId");
+
+                    b.HasIndex("TenantEnvironmentId", "Email")
                         .IsUnique();
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantEnvironmentId", "ExternalReference");
 
                     b.ToTable("tenant_users", (string)null);
                 });
@@ -438,6 +660,23 @@ namespace Walletly.Infrastructure.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Walletly.Domain.Entities.TemporaryTenant", b =>
+                {
+                    b.HasOne("Walletly.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Walletly.Domain.Entities.TenantAccountOwner", b =>
+                {
+                    b.HasOne("Walletly.Domain.Entities.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Walletly.Domain.Entities.TenantAllowedUrl", b =>
                 {
                     b.HasOne("Walletly.Domain.Entities.TenantEnvironment", null)
@@ -465,13 +704,41 @@ namespace Walletly.Infrastructure.Data.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Walletly.Domain.Entities.TenantUser", b =>
+            modelBuilder.Entity("Walletly.Domain.Entities.TenantRole", b =>
                 {
-                    b.HasOne("Walletly.Domain.Entities.Tenant", null)
+                    b.HasOne("Walletly.Domain.Entities.TenantEnvironment", null)
                         .WithMany()
-                        .HasForeignKey("TenantId")
+                        .HasForeignKey("TenantEnvironmentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Walletly.Domain.Entities.TenantRolePermission", b =>
+                {
+                    b.HasOne("Walletly.Domain.Entities.TenantRole", null)
+                        .WithMany("Permissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Walletly.Domain.Entities.TenantUser", b =>
+                {
+                    b.HasOne("Walletly.Domain.Entities.TenantEnvironment", null)
+                        .WithMany()
+                        .HasForeignKey("TenantEnvironmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Walletly.Domain.Entities.TenantRole", null)
+                        .WithMany()
+                        .HasForeignKey("TenantRoleId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Walletly.Domain.Entities.TenantRole", b =>
+                {
+                    b.Navigation("Permissions");
                 });
 #pragma warning restore 612, 618
         }
